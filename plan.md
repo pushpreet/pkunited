@@ -26,8 +26,12 @@ Self-host the full stack for a small business selling hardware/electronics on Am
    │  InvenTree   │ │    Akaunting     │
    │  + MCP      │ │    + REST API    │
    │ (inventory)  │ │  (bookkeeping)   │
-   └─────────────┘ └─────────────────┘
+   └─────────────┘ └──────────────────┘
 ```
+
+All three services run on a single Proxmox VM (**business-vm**, `10.37.20.70`, VLAN 20),
+managed by Ansible in the `psx-homelab` repo — same pattern as core / media / llm.
+Edge Caddy on core-infra reverse-proxies by IP to each service.
 
 ---
 
@@ -40,21 +44,18 @@ Self-host the full stack for a small business selling hardware/electronics on Am
 | Repo | [inventree/inventree](https://github.com/inventree/inventree) |
 | License | MIT |
 | Tech Stack | Python/Django + DRF (REST API), PostgreSQL, React frontend |
-| Docker | `inventree/inventree:latest` |
+| Docker | `inventree/inventree:2.7.1` |
 | API | Full REST API with OpenAPI/Swagger docs |
-| MCP Server | [syntaxerr66/inventree-mcp](https://github.com/syntaxerr66/inventree-mcp) — 26 tools (parts, stock, locations, categories) with fuzzy search and image lookup |
-| Deployment | Docker Compose + PostgreSQL |
+| MCP Server | [syntaxerr66/inventree-mcp](https://github.com/syntaxerr66/inventree-mcp) — 26 tools (parts, stock, locations, categories) |
+| Host Port | `10.37.20.70:8080` → `inventree.pushprh.com` |
+| Stack | `stacks/inventree/` in psx-homelab |
 
-**Key capabilities for our use case:**
+**Key capabilities:**
 - Part-level stock tracking with serial numbers / batch tracking
-- Purchase orders to suppliers
-- Sales orders to customers
+- Purchase orders to suppliers, sales orders to customers
 - Location hierarchy (warehouse shelves, bins, rooms)
-- BOMs (bills of materials) for kits/bundles
-- Import/export CSV
-- Mobile app (iOS + Android) for barcode scanning and stock movements
-
-**MCP setup:** Build the Go binary from source, run as stdio MCP server with `INVENTREE_URL` and `INVENTREE_TOKEN` env vars.
+- BOMs for kits/bundles, CSV import/export
+- Mobile app (iOS + Android) for barcode scanning
 
 ---
 
@@ -67,23 +68,16 @@ Self-host the full stack for a small business selling hardware/electronics on Am
 | Repo | [akaunting/akaunting](https://github.com/akaunting/akaunting) |
 | License | GPL-3.0 |
 | Tech Stack | PHP/Laravel + Vue.js, MySQL/MariaDB |
-| Docker | `akaunting/akaunting:latest` |
-| API | Full REST API (CRUD on all entities: invoices, bills, transactions, accounts, categories, taxes) |
-| Auth | HTTP Basic (email + password) or Personal Access Token |
-| Deployment | Docker Compose + MariaDB |
+| Docker | `akaunting/akaunting:3.1.31` |
+| API | Full REST API (CRUD on all entities) |
+| Host Port | `10.37.20.70:8081` → `accounts.pushprh.com` |
+| Stack | `stacks/akaunting/` in psx-homelab |
 
-**Key capabilities for our use case:**
-- Invoice creation and tracking
-- Bill/expense recording
-- Double-entry accounting engine
-- Bank account tracking (manual import via CSV/OFX)
-- Multi-currency support
-- Tax/VAT calculation and reporting
-- Recurring invoices and bills
-- Multi-user with roles
-- App/plugin ecosystem for extensions
-
-**LLM access:** No native MCP server, but the REST API is well-structured. We can write a lightweight MCP wrapper (TypeScript/Node or Go) or interact via the API directly from n8n AI agent nodes.
+**Key capabilities:**
+- Invoice creation and tracking, bill/expense recording
+- Double-entry accounting, multi-currency support
+- Tax/VAT calculation, bank account tracking
+- Recurring invoices, multi-user with roles
 
 ---
 
@@ -94,21 +88,21 @@ Self-host the full stack for a small business selling hardware/electronics on Am
 | Property | Detail |
 |----------|--------|
 | Repo | [n8n-io/n8n](https://github.com/n8n-io/n8n) |
-| License | Sustainable Use License (free for self-hosted personal/business use) |
-| Tech Stack | Node.js, PostgreSQL/SQLite, Redis (optional) |
-| Docker | `docker.n8n.io/n8n/n8n` |
-| API | REST API + WebSocket |
-| Deployment | Docker Compose + PostgreSQL |
+| License | Sustainable Use License (free for self-hosted) |
+| Tech Stack | Node.js, PostgreSQL, Redis (optional) |
+| Docker | `docker.n8n.io/n8n/n8n:1.101.2` |
+| Host Port | `10.37.20.70:5678` → `n8n.pushprh.com` |
+| Stack | `stacks/n8n/` in psx-homelab |
 
 **Key workflows to build:**
-1. **Amazon order ingestion** — Poll Amazon SP-API for new orders → create sales order in InvenTree → create invoice/revenue entry in Akaunting
-2. **eBay order ingestion** — Poll eBay API for new orders → same flow as Amazon
-3. **Stock deduction** — On fulfilled order → deduct quantities from InvenTree locations
-4. **Bank statement import** — Parse CSV/OFX from bank feeds → create transactions in Akaunting
-5. **Reorder alerts** — When InvenTree stock drops below threshold → notify / create purchase order
-6. **Revenue reconciliation** — Periodic sync of marketplace payouts to Akaunting bank accounts
+1. **Amazon order ingestion** → InvenTree sales order + Akaunting invoice
+2. **eBay order ingestion** → same flow
+3. **Stock deduction** on fulfilled orders
+4. **Bank CSV import** → Akaunting transactions
+5. **Reorder alerts** when stock drops below threshold
+6. **Revenue reconciliation** of marketplace payouts
 
-**LLM access:** n8n has native AI Agent nodes and a REST API. LLM agents can trigger workflows programmatically or interact through the n8n interface.
+n8n reaches LiteLLM on epyc-server (`http://10.37.20.50:4000/v1`) for LLM inference via a dedicated virtual key.
 
 ---
 
@@ -116,40 +110,98 @@ Self-host the full stack for a small business selling hardware/electronics on Am
 
 **Approach:** Manual CSV/OFX import piped through n8n into Akaunting.
 
-**Rationale:** Avoiding Plaid/SimpleFIN dependency costs ($15+/yr, API key management, credential refresh). Bank CSV imports are reliable for small volume, and n8n can parse/transform the data and push it to Akaunting's API.
-
-**Future upgrade path:** If volume justifies it, add [OpenFinance](https://openfinance.sh/) (self-hosted Plaid alternative with built-in MCP server) for automated bank sync.
+**Rationale:** Avoiding Plaid/SimpleFIN costs. Upgrade to [OpenFinance](https://openfinance.sh/) later if volume justifies it.
 
 ---
 
 ## Current State: Grist
 
-We are currently using a self-hosted Grist instance for some accounting workflows. Grist is flexible (spreadsheet-database hybrid with API and automations) but lacks structured accounting features (double-entry, tax reporting, invoicing). Data should be exported from Grist (CSV/Excel) and migrated into Akaunting and InvenTree as part of the initial setup.
+Currently using self-hosted Grist for some accounting. Data should be exported from Grist (CSV/Excel) and migrated into Akaunting and InvenTree as part of initial setup.
 
 ---
 
-## Deployment Plan
+## Provisioning & Deployment
 
-### Phase 1: Foundation
-- [ ] Stand up InvenTree + PostgreSQL (Docker Compose)
-- [ ] Stand up Akaunting + MariaDB (Docker Compose)
-- [ ] Stand up n8n + PostgreSQL (Dler Compose)
-- [ ] Configure network/connectivity between containers
-- [ ] Set up reverse proxy (Traefik/Nginx/Caddy) with TLS
+**Repo split:** Compose stacks live here (pkunited). Secrets, Ansible provisioning,
+and infrastructure live in `psx-homelab`. The two repos must be sibling directories
+(`~/Projects/pkunited` and `~/Projects/psx-homelab`) so `psx-homelab/justfile` can
+resolve `PKUNITED_REPO` by default.
 
-### Phase 2: Data Migration
+### Prerequisites
+
+**VM provisioning** (one-time, from Proxmox control machine with SSH access):
+```bash
+cd ~/Projects/psx-homelab
+host/provision-vms.sh vm business
+```
+This creates a Debian 13 (trixie) VM: 4 vCPU / 8 GB RAM / 40 GB SSD on `local-zfs`,
+IP `10.37.20.70` on VLAN 20. MAC `88:88:88:20:00:70`. Cloud-init + deploy key.
+
+### Phase 1: Secrets
+
+All commands run from the `psx-homelab` directory:
+
+```bash
+cd ~/Projects/psx-homelab
+
+# Fill in values, then encrypt (creates secrets/<svc>.env.sops):
+cp secrets/inventree.env.example /tmp/inventree.env   # edit
+just sops-new inventree /tmp/inventree.env
+shred -u /tmp/inventree.env
+
+# Repeat for akaunting and n8n.
+# Later edits:
+just sops-edit inventree
+just sops-edit akaunting
+just sops-edit n8n
+```
+
+### Phase 2: Bootstrap (Ansible + Stacks)
+
+From `psx-homelab`:
+
+```bash
+# Full bootstrap: base → Docker → businessnet → deploy all stacks
+just deploy-host business
+
+# Or deploy individual stacks (compose sourced from pkunited, .env from psx-homelab secrets):
+just deploy-stack business inventree
+just deploy-stack business akaunting
+just deploy-stack business n8n
+```
+
+**How it works:**
+1. `just secrets` renders SOPS → `.env` into both local `stacks/<svc>/` _and_
+   `${PKUNITED_REPO}/stacks/<svc>/.env` (bridging the two repos)
+2. Ansible `base` + `docker` roles provision the host
+3. `businessnet` Docker network created
+4. `deploy_stacks.yml` rsyncs compose files from pkunited (`PKUNITED_REPO/stacks/<svc>/`)
+   to the business VM's `/opt/stacks/<svc>/`, then `docker compose up -d`
+5. The `.env` is already in the pkunited stack dir, so Compose picks it up
+
+### Phase 3: Caddy Routes
+
+```bash
+# Redeploy Caddy to pick up business routes + auto-provision TLS certs:
+just deploy-stack core caddy
+```
+
+### Phase 3: Data Migration
+
 - [ ] Export data from Grist (CSV)
-- [ ] Import product/part catalog into InvenTree
+- [ ] Import product/part catalog into InvenTree (`inventree.pushprh.com`)
 - [ ] Import existing stock quantities into InvenTree
-- [ ] Set up chart of accounts in Akaunting
+- [ ] Set up chart of accounts in Akaunting (`accounts.pushprh.com`)
 - [ ] Import existing transactions/balances into Akaunting
 
-### Phase 3: MCP Setup
-- [ ] Build and deploy inventree-mcp server
-- [ ] Build Akaunting MCP wrapper (or use n8n AI nodes as the interface)
+### Phase 4: MCP Setup (Phase 2 — future)
+
+- [ ] Build and deploy inventree-mcp server (Go binary, stdio mode)
+- [ ] Build Akaunting MCP wrapper (TypeScript/Node or Go)
 - [ ] Wire up MCP servers to LLM agents (Claude Desktop, etc.)
 
-### Phase 4: n8n Workflows
+### Phase 5: n8n Workflows
+
 - [ ] Configure Amazon SP-API credentials and build order polling workflow
 - [ ] Configure eBay API credentials and build order polling workflow
 - [ ] Build order → inventory + accounting sync workflows
@@ -157,10 +209,23 @@ We are currently using a self-hosted Grist instance for some accounting workflow
 - [ ] Build reorder alert workflow
 - [ ] Test end-to-end order flow with real orders
 
-### Phase 5: Integration & Testing
-- [ ] End-to-end test: marketplace order → InvenTree stock deduction → Akaunting revenue entry
-- [ ] LLM agent test: natural language queries against inventory and finances
-- [ ] Monitor and refine workflows
+---
+
+## Day-to-Day Operations
+
+All commands from `psx-homelab` (compose sourced from pkunited):
+
+| Action | Command |
+|--------|---------|
+| Full deploy (all hosts) | `just deploy` |
+| Business host only | `just deploy-host business` |
+| Single stack | `just deploy-stack business <inventree\|akaunting\|n8n>` |
+| Stack logs | `just stack-logs business <inventree\|akaunting\|n8n>` |
+| Stop a stack | `just stack-down business <stack>` |
+| Purge a stack | `just stack-purge business <stack>` |
+| Edit secrets | `just sops-edit <inventree\|akaunting\|n8n>` |
+| Health check | `just ping` (includes business) |
+| Backups | `backup` role (restic → Azure, nightly at 02:30) |
 
 ---
 
@@ -169,19 +234,21 @@ We are currently using a self-hosted Grist instance for some accounting workflow
 | Decision | Choice | Why |
 |----------|--------|-----|
 | Inventory | InvenTree over OpenOMS | Production-stable, excellent MCP server, perfect for hardware/parts tracking |
-| Bookkeeping | Akaunting over Actual Budget | Akaunting is business-oriented (invoicing, double-entry, tax). Actual Budget is personal envelope budgeting |
+| Bookkeeping | Akaunting over Actual Budget | Business-oriented (invoicing, double-entry, tax). Actual Budget is personal envelope budgeting |
 | Automation | n8n over custom scripts | Visual workflow builder, native marketplace nodes, AI agent nodes, mature ecosystem |
 | Bank sync | CSV via n8n over Plaid/OpenFinance | Avoid SaaS dependency and cost. Upgrade to OpenFinance later if needed |
-| All-in-one ERP | Rejected Odoo | Community edition paywalls key features (double-entry accounting, marketplace connectors). Enterprise is per-user paid |
+| All-in-one ERP | Rejected Odoo | Community edition paywalls key features. Enterprise is per-user paid |
 | Spreadsheet DB | Migrate off Grist | Grist is great for prototyping but lacks structured accounting/inventory features |
 
 ---
 
 ## Open Questions
 
-- Amazon SP-API: Need to set up AWS seller credentials and register a selling application. Any existing Seller Central account?
-- eBay API: Need OAuth credentials (Client ID + Secret) from eBay Developer Portal.
-- Bank CSV format: Which banks? Need to know the CSV/OFX format for n8n parser.
-- Existing Grist data: What tables/schemas are currently in use?
-- Reverse proxy: What's the current homelab DNS/reverse proxy setup?
-- Current homelab infrastructure: Proxmox? Docker Swarm? Kubernetes? Plain Docker Compose?
+1. **VM sizing:** 4 vCPU / 8 GB RAM / 40 GB SSD — sufficient? Or bump to 6 vCPU / 16 GB?
+2. **Backup target:** restic → Azure (like core/media) or restic → NAS (like llm)? (Default: Azure, matching the `backup` role pattern.)
+3. **Monitoring:** Add business services to core-infra Prometheus/Grafana?
+4. **Authelia SSO:** Should inventree/accounts/n8n go behind Authelia (existing LLDAP directory) or keep native login?
+5. **Amazon Seller Central:** Existing SP-API developer profile? Need `seller_id`, `refresh_token`, AWS creds.
+6. **eBay Developer:** OAuth `client_id` / `client_secret` from developer.ebay.com?
+7. **Bank CSV format:** Which banks? Format determines the n8n parser.
+8. **Dev VM separation:** Business VM is on `10.37.20.70`; dev VM remains on `10.37.20.60`. No conflict.

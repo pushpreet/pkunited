@@ -6,9 +6,9 @@ All business services live on a single new Proxmox VM on VLAN 20 (services), man
 same way as core-infra / media / llm:
 
 ```
-┌───────────────────────────────────────────  business (10.37.20.60) ─────────────────────────────────────────┐
+┌───────────────────────────────────────────  business (10.37.20.70) ─────────────────────────────────────────┐
 │                                                                                                             │
-│  Edge Caddy (core-infra) → reverse_proxy 10.37.20.60:<port>                                                 │
+│  Edge Caddy (core-infra) → reverse_proxy 10.37.20.70:<port>                                                 │
 │                                                                                                             │
 │  inventree    → inventree.pushprh.com   (Django/Postgres, host port 8080)                                   │
 │  akaunting    → accounts.pushprh.com    (Laravel/MariaDB, host port 8081)                                   │
@@ -40,8 +40,8 @@ Add to `host/provision-vms.sh` (same pattern as existing VMs):
 
 ```bash
 local BUSINESS_VMID=910
-local BUSINESS_MAC="BC:26:xx:xx:xx:60"
-local BUSINESS_IP="10.37.20.60"
+local BUSINESS_MAC="BC:26:xx:xx:xx:70"
+local BUSINESS_IP="10.37.20.70"
 
 qm create ${BUSINESS_VMID} \
   --name business \
@@ -95,7 +95,7 @@ services:
       - /opt/appdata/inventree/plugins:/data/plugins
       - /opt/appdata/inventree/backups:/data/backups
     ports:
-      - "10.37.20.60:8080:8080"
+      - "10.37.20.70:8080:8080"
     depends_on:
       inventree-db:
         condition: service_healthy
@@ -170,7 +170,7 @@ services:
       - /opt/appdata/akaunting/public:/var/www/html/public
       - /opt/appdata/akaunting/storage:/var/www/html/storage
     ports:
-      - "10.37.20.60:8081:80"
+      - "10.37.20.70:8081:80"
     depends_on:
       akaunting-db:
         condition: service_healthy
@@ -262,7 +262,7 @@ services:
     volumes:
       - /opt/appdata/n8n:/home/node/.n8n
     ports:
-      - "10.37.20.60:5678:5678"
+      - "10.37.20.70:5678:5678"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:5678/healthz"]
       interval: 30s
@@ -316,15 +316,15 @@ LITELLM_N8N_KEY=
 Add to `stacks/caddy/Caddyfile` (proxies to the business VM by IP, same pattern as media VM):
 
 ```
-# ---- Business VM (10.37.20.60) ----
+# ---- Business VM (10.37.20.70) ----
 http://inventree.pushprh.com, https://inventree.pushprh.com {
-    reverse_proxy 10.37.20.60:8080
+    reverse_proxy 10.37.20.70:8080
 }
 http://accounts.pushprh.com, https://accounts.pushprh.com {
-    reverse_proxy 10.37.20.60:8081
+    reverse_proxy 10.37.20.70:8081
 }
 http://n8n.pushprh.com, https://n8n.pushprh.com {
-    reverse_proxy 10.37.20.60:5678
+    reverse_proxy 10.37.20.70:5678
 }
 ```
 
@@ -337,7 +337,7 @@ Deploy with: `just deploy-stack core caddy`
 ### `ansible/inventory.yml` — add group:
 ```yaml
 [business]
-10.37.20.60
+10.37.20.70
 ```
 
 ### `ansible/group_vars/business.yml` — new file:

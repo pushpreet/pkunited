@@ -1,0 +1,57 @@
+# Akaunting — business accounting, invoicing, double-entry bookkeeping.
+# Laravel/MariaDB, host port 8081. Reverse-proxied via Caddy → accounts.pushprh.com.
+services:
+  akaunting:
+    image: akaunting/akaunting:latest
+    container_name: akaunting
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_URL: "https://accounts.pushprh.com"
+      DB_HOST: "akaunting-db"
+      DB_DATABASE: "${AKAUNTING_DB_NAME}"
+      DB_USERNAME: "${AKAUNTING_DB_USER}"
+      DB_PASSWORD: "${AKAUNTING_DB_PASSWORD}"
+      APP_KEY: "${AKAUNTING_APP_KEY}"
+    volumes:
+      - /opt/appdata/akaunting/app:/var/www/html/app
+      - /opt/appdata/akaunting/public:/var/www/html/public
+      - /opt/appdata/akaunting/storage:/var/www/html/storage
+    ports:
+      - "10.37.20.70:8081:80"
+    depends_on:
+      akaunting-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - businessnet
+    security_opt:
+      - no-new-privileges:true
+
+  akaunting-db:
+    image: mariadb:11.3
+    container_name: akaunting-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${AKAUNTING_DB_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${AKAUNTING_DB_NAME}"
+      MYSQL_USER: "${AKAUNTING_DB_USER}"
+      MYSQL_PASSWORD: "${AKAUNTING_DB_PASSWORD}"
+    volumes:
+      - /opt/appdata/akaunting/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - businessnet
+
+networks:
+  businessnet:
+    external: true

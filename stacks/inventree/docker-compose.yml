@@ -1,0 +1,72 @@
+# InvenTree — inventory & parts management for hardware resale.
+# Django/Postgres, host port 8080. Reverse-proxied via Caddy → inventree.pushprh.com.
+services:
+  inventree:
+    image: inventree/inventree:latest
+    container_name: inventree
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      INVENTREE_DB_ENGINE: "postgresql"
+      INVENTREE_DB_NAME: "${INVENTREE_DB_NAME}"
+      INVENTREE_DB_HOST: "inventree-db"
+      INVENTREE_DB_PORT: "5432"
+      INVENTREE_DB_USER: "${INVENTREE_DB_USER}"
+      INVENTREE_DB_PASSWORD: "${INVENTREE_DB_PASSWORD}"
+      INVENTREE_EMAIL_BACKEND: "console"
+      INVENTREE_MEDIA_ROOT: "/data/media"
+      INVENTREE_STATIC_ROOT: "/data/static"
+      INVENTREE_PLUGIN_ROOT: "/data/plugins"
+      INVENTREE_SECRET_KEY: "${INVENTREE_SECRET_KEY}"
+      INVENTREE_SITE_URL: "https://inventree.pushprh.com"
+      INVENTREE_CSRF_TRUSTED_ORIGINS: "https://inventree.pushprh.com"
+      INVENTREE_ALLOWED_HOSTS: "inventree.pushprh.com,inventree,localhost"
+      INVENTREE_REQUIRE_AUTHENTICATION: "True"
+      INVENTREE_LOGIN_ERROR_RATE_LIMIT: "3"
+      INVENTREE_MEDIA_URL: "/media/"
+      INVENTREE_STATIC_URL: "/static/"
+      INVENTREE_TIMEZONE: "America/Los_Angeles"
+      INVENTREE_BACKUP_ENABLED: "True"
+      INVENTREE_BACKUP_DIR_NAME: "backups"
+    volumes:
+      - /opt/appdata/inventree/media:/data/media
+      - /opt/appdata/inventree/static:/data/static
+      - /opt/appdata/inventree/plugins:/data/plugins
+      - /opt/appdata/inventree/backups:/data/backups
+    ports:
+      - "10.37.20.70:8080:8080"
+    depends_on:
+      inventree-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - businessnet
+    security_opt:
+      - no-new-privileges:true
+
+  inventree-db:
+    image: postgres:17
+    container_name: inventree-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${INVENTREE_DB_USER}"
+      POSTGRES_PASSWORD: "${INVENTREE_DB_PASSWORD}"
+      POSTGRES_DB: "${INVENTREE_DB_NAME}"
+    volumes:
+      - /opt/appdata/inventree/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${INVENTREE_DB_USER} -d ${INVENTREE_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - businessnet
+
+networks:
+  businessnet:
+    external: true
