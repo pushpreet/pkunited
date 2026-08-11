@@ -36,11 +36,11 @@ services:
     ports:
       - "10.37.20.70:5678:5678"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:5678/healthz"]
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:5678/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 120s
     networks:
       - businessnet
     security_opt:

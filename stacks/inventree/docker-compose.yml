@@ -1,10 +1,27 @@
 # InvenTree — inventory & parts management for hardware resale.
-# Django/Postgres, host port 8080. Reverse-proxied via Caddy → inventree.pushprh.com.
+# gunicorn (8000) behind InvenTree's own Caddy (8080). Edge Caddy → inventree.pushprh.com:8080.
 services:
+  inventree-proxy:
+    image: caddy:alpine
+    container_name: inventree-proxy
+    restart: unless-stopped
+    ports:
+      - "10.37.20.70:8080:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/appdata/inventree/static:/var/www/static:ro
+      - /opt/appdata/inventree/media:/var/www/media:ro
+    depends_on:
+      - inventree
+    networks:
+      - businessnet
+
   inventree:
-    image: inventree/inventree:latest
+    image: inventree/inventree:1.4.3
     container_name: inventree
     restart: unless-stopped
+    expose:
+      - "8000"
     env_file: .env
     environment:
       INVENTREE_DB_ENGINE: "postgresql"
@@ -20,7 +37,7 @@ services:
       INVENTREE_SECRET_KEY: "${INVENTREE_SECRET_KEY}"
       INVENTREE_SITE_URL: "https://inventree.pushprh.com"
       INVENTREE_CSRF_TRUSTED_ORIGINS: "https://inventree.pushprh.com"
-      INVENTREE_ALLOWED_HOSTS: "inventree.pushprh.com,inventree,localhost"
+      INVENTREE_ALLOWED_HOSTS: "inventree.pushprh.com,inventree,localhost,127.0.0.1"
       INVENTREE_REQUIRE_AUTHENTICATION: "True"
       INVENTREE_LOGIN_ERROR_RATE_LIMIT: "3"
       INVENTREE_MEDIA_URL: "/media/"
@@ -33,17 +50,15 @@ services:
       - /opt/appdata/inventree/static:/data/static
       - /opt/appdata/inventree/plugins:/data/plugins
       - /opt/appdata/inventree/backups:/data/backups
-    ports:
-      - "10.37.20.70:8080:8080"
     depends_on:
       inventree-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/')"]
+      test: ["CMD", "curl", "-f", "-H", "Host: inventree.pushprh.com", "http://127.0.0.1:8000/health/"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 300s
     networks:
       - businessnet
     security_opt:
