@@ -5,13 +5,18 @@ services:
     image: akaunting/akaunting:latest
     container_name: akaunting
     restart: unless-stopped
+    entrypoint: ["bash", "/akaunting-start.sh"]
     env_file: .env
     environment:
       APP_URL: "https://accounts.pushprh.com"
+      # Trust proxy headers from Caddy
+      TRUSTED_PROXIES: "10.37.20.10,10.37.20.70,127.0.0.1"
+      FORWARDED: "all"
       DB_HOST: "akaunting-db"
-      DB_DATABASE: "${AKAUNTING_DB_NAME}"
+      DB_NAME: "${AKAUNTING_DB_NAME}"
       DB_USERNAME: "${AKAUNTING_DB_USER}"
       DB_PASSWORD: "${AKAUNTING_DB_PASSWORD}"
+      DB_PORT: "3306"
       APP_KEY: "${AKAUNTING_APP_KEY}"
       # --- Pre-auth middleware (Authelia via Caddy forward_auth) ---
       APP_PRELOAD: "/var/www/html/pre-auth-load.php"
@@ -27,11 +32,11 @@ services:
       akaunting-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:80/health"]
+      test: ["CMD-SHELL", "curl -4 -s -o /dev/null -w '%{http_code}' http://127.0.0.1:80/ | grep -qE '^(2|3|4)[0-9]{2}$'"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 120s
     networks:
       - businessnet
     security_opt:

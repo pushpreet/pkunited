@@ -13,5 +13,6 @@
     # Everything else → gunicorn backend
     reverse_proxy inventree:8000 {
         header_up Host inventree.pushprh.com
+        header_up X-Forwarded-Proto https
     }
 }

@@ -56,6 +56,11 @@ services:
           }
         }
       INVENTREE_LOGIN_DEFAULT_HTTP_PROTOCOL: https
+      # Trust proxy headers from the internal Caddy
+      INVENTREE_USE_X_FORWARDED_PROTO: "true"
+      INVENTREE_USE_X_FORWARDED_HOST: "true"
+      INVENTREE_USE_X_FORWARDED_PORT: "true"
+      INVENTREE_INTERNAL_URLS: "10.37.20.10,10.37.20.70,127.0.0.1,localhost"
     volumes:
       - /opt/appdata/inventree/media:/data/media
       - /opt/appdata/inventree/static:/data/static
