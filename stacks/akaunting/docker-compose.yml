@@ -13,10 +13,14 @@ services:
       DB_USERNAME: "${AKAUNTING_DB_USER}"
       DB_PASSWORD: "${AKAUNTING_DB_PASSWORD}"
       APP_KEY: "${AKAUNTING_APP_KEY}"
+      # --- Pre-auth middleware (Authelia via Caddy forward_auth) ---
+      APP_PRELOAD: "/var/www/html/pre-auth-load.php"
     volumes:
       - /opt/appdata/akaunting/app:/var/www/html/app
       - /opt/appdata/akaunting/public:/var/www/html/public
       - /opt/appdata/akaunting/storage:/var/www/html/storage
+      - ./pre-auth-middleware.php:/var/www/html/pre-auth-middleware.php
+      - ./pre-auth-load.php:/var/www/html/pre-auth-load.php
     ports:
       - "10.37.20.70:8081:80"
     depends_on:

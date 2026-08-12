@@ -45,6 +45,17 @@ services:
       INVENTREE_TIMEZONE: "America/Los_Angeles"
       INVENTREE_BACKUP_ENABLED: "True"
       INVENTREE_BACKUP_DIR_NAME: "backups"
+      # --- SSO (Authelia OIDC via django-allauth) ---
+      INVENTREE_SOCIAL_BACKENDS: allauth.socialaccount.providers.openid_connect
+      INVENTREE_SOCIAL_PROVIDERS: |-
+        {
+          "openid_connect": {
+            "bitbucket": {
+              "server_url": "https://auth.pushprh.com/.well-known/openid-configuration"
+            }
+          }
+        }
+      INVENTREE_LOGIN_DEFAULT_HTTP_PROTOCOL: https
     volumes:
       - /opt/appdata/inventree/media:/data/media
       - /opt/appdata/inventree/static:/data/static

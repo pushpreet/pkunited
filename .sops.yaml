@@ -1,0 +1,15 @@
+# SOPS rule: encrypt secrets/*.env.sops with age.
+# Replace the recipient below with your age public key (`age-keygen` -> "public key:").
+# Because the files use a dotenv body, always decrypt/edit with:
+#   sops --input-type dotenv --output-type dotenv ...
+creation_rules:
+  - path_regex: secrets/.*\.env\.sops$
+    input_type: dotenv
+    age: "age1muhxctlmyhf8lk2qm48z2hur5t4tjfjdz0xn4372nekwspghkgfsfwx9g6"
+  # JSON secrets (e.g. the Cloudflare Tunnel credentials.json). Named
+  # <stack>-<file>.json.sops and rendered to stacks/<stack>/<file>.json by
+  # scripts/render-env.sh. JSON body, so decrypt/edit with:
+  #   sops --input-type json --output-type json ...
+  - path_regex: secrets/.*\.json\.sops$
+    input_type: json
+    age: "age1muhxctlmyhf8lk2qm48z2hur5t4tjfjdz0xn4372nekwspghkgfsfwx9g6"

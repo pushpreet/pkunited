@@ -1,0 +1,41 @@
+# Business Services Authelia Config Fragment
+#
+# Merged into psx-homelab's stacks/authelia/config/configuration.yml at deploy time
+# by ansible. Adds the `business` authorization policy and per-service OIDC clients.
+# The OIDC client secret digests are injected from stacks/authelia/extra.env.
+
+# Authorization policy — merged into identity_providers.oidc.authorization_policies
+authorization_policies:
+  business:
+    default_policy: 'deny'
+    rules:
+      - policy: 'two_factor'
+        subject: ['group:homelab_admins']
+      - policy: 'one_factor'
+        subject: ['group:pku_users']
+
+# OIDC clients — appended to identity_providers.oidc.clients list
+clients:
+  - client_id: 'inventree'
+    client_name: 'InvenTree'
+    client_secret: '{{ env "OIDC_INVENTREE_CLIENT_SECRET_DIGEST" }}'
+    public: false
+    authorization_policy: 'business'
+    consent_mode: 'implicit'
+    token_endpoint_auth_method: 'client_secret_basic'
+    redirect_uris:
+      - 'https://inventree.pushprh.com/accounts/oidc/login/callback/'
+    scopes: ['openid', 'profile', 'email', 'groups']
+    userinfo_signed_response_alg: 'none'
+
+  - client_id: 'n8n'
+    client_name: 'n8n'
+    client_secret: '{{ env "OIDC_N8N_CLIENT_SECRET_DIGEST" }}'
+    public: false
+    authorization_policy: 'business'
+    consent_mode: 'implicit'
+    token_endpoint_auth_method: 'client_secret_basic'
+    redirect_uris:
+      - 'https://n8n.pushprh.com/auth/oidc/callback'
+    scopes: ['openid', 'profile', 'email']
+    userinfo_signed_response_alg: 'none'
