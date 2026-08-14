@@ -1,41 +1,30 @@
 # Akaunting — business accounting, invoicing, double-entry bookkeeping.
-# Laravel/MariaDB, host port 8081. Reverse-proxied via Caddy → accounts.pushprh.com.
+# Laravel/MariaDB behind business Caddy (forward_auth → Authelia) → accounts.pushprh.com.
 services:
   akaunting:
-    image: akaunting/akaunting:latest
+    image: akaunting/akaunting:3.1.21
     container_name: akaunting
     restart: unless-stopped
     entrypoint: ["bash", "/akaunting-start.sh"]
     env_file: .env
     environment:
       APP_URL: "https://accounts.pushprh.com"
-      # Trust proxy headers from Caddy
-      TRUSTED_PROXIES: "10.37.20.10,10.37.20.70,127.0.0.1"
-      FORWARDED: "all"
       DB_HOST: "akaunting-db"
       DB_NAME: "${AKAUNTING_DB_NAME}"
       DB_USERNAME: "${AKAUNTING_DB_USER}"
       DB_PASSWORD: "${AKAUNTING_DB_PASSWORD}"
       DB_PORT: "3306"
       APP_KEY: "${AKAUNTING_APP_KEY}"
-      # --- Pre-auth middleware (Authelia via Caddy forward_auth) ---
-      # TODO: re-enable after fixing autoload crash
-      # APP_PRELOAD: "/var/www/html/pre-auth-load.php"
       # --- Setup/Install ---
       AKAUNTING_SETUP: "false"
       COMPANY_NAME: "${COMPANY_NAME:-PK United}"
       COMPANY_EMAIL: "${COMPANY_EMAIL:-hpushpreet@gmail.com}"
       ADMIN_EMAIL: "${ADMIN_EMAIL:-hpushpreet@gmail.com}"
-      ADMIN_PASSWORD: "${AKAUNTING_BREAKGLASS_PASSWORD}"
       LOCALE: "${LOCALE:-en-US}"
       DB_PREFIX: "${DB_PREFIX:-3di_}"
     volumes:
       - ./akaunting-start.sh:/akaunting-start.sh:ro
       - /opt/appdata/akaunting/storage:/var/www/html/storage
-      - ./pre-auth-middleware.php:/var/www/html/pre-auth-middleware.php
-      - ./pre-auth-load.php:/var/www/html/pre-auth-load.php
-    ports:
-      - "10.37.20.70:8081:80"
     depends_on:
       akaunting-db:
         condition: service_healthy

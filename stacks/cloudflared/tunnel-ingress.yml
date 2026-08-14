@@ -1,9 +1,0 @@
-# Business VM (10.37.20.70) — Cloudflare Tunnel ingress routes
-# Merged into psx-homelab's stacks/cloudflared/config.yml at deploy time.
-# Each hostname routes through the tunnel to Caddy, which proxies to the business VM.
-- hostname: inventree.pushprh.com
-  service: http://caddy:80
-- hostname: accounts.pushprh.com
-  service: http://caddy:80
-- hostname: n8n.pushprh.com
-  service: http://caddy:80

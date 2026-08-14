@@ -5,8 +5,10 @@
 stacks/*/.env
 stacks/**/*.env
 
-# Age key (sensitive)
+# Age key and deploy key (sensitive)
 secrets/age.key
+secrets/pkunited_deploy_ed25519
+secrets/pkunited_deploy_ed25519.pub
 
 # Node modules (if any tooling added later)
 node_modules/

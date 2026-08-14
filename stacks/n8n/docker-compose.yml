@@ -1,5 +1,5 @@
 # n8n — workflow automation (marketplace order ingestion, bank CSV import, LLM agents).
-# Node.js/Postgres, host port 5678. Reverse-proxied via Caddy → n8n.pushprh.com.
+# Behind business Caddy (forward_auth → Authelia, webhooks bypass) → n8n.pushprh.com.
 # Reaches LiteLLM on epyc-server for inference via LAN (http://10.37.20.50:4000/v1).
 services:
   n8n:
@@ -31,20 +31,8 @@ services:
       # Reaches LiteLLM on epyc-server over LAN — same as media VM cross-host calls
       N8N_LLM_PROVIDER_OPENAI_API_BASE: "http://10.37.20.50:4000/v1"
       N8N_LLM_PROVIDER_OPENAI_API_KEY: "${LITELLM_N8N_KEY}"
-      # --- OIDC SSO (n8n-oidc bolt-on) ---
-      N8N_ADDITIONAL_NON_UI_ROUTES: "auth"
-      N8N_TRUST_PROXY: "true"
-      EXTERNAL_HOOK_FILES: "/app/oidc/hooks.js"
-      EXTERNAL_FRONTEND_HOOKS_URLS: "/assets/oidc-frontend-hook.js"
-      OIDC_ISSUER_URL: "https://auth.pushprh.com"
-      OIDC_CLIENT_ID: "n8n"
-      OIDC_CLIENT_SECRET: "${N8N_OIDC_CLIENT_SECRET}"
-      OIDC_REDIRECT_URI: "https://n8n.pushprh.com/auth/oidc/callback"
     volumes:
       - /opt/appdata/n8n:/home/node/.n8n
-      - ./oidc/hooks.js:/app/oidc/hooks.js:ro
-    ports:
-      - "10.37.20.70:5678:5678"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:5678/healthz || exit 1"]
       interval: 30s

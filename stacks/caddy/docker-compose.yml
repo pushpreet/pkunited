@@ -1,0 +1,19 @@
+services:
+  caddy:
+    image: caddy:alpine
+    container_name: business-caddy
+    restart: unless-stopped
+    ports:
+      - "10.37.20.70:9443:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/appdata/caddy/data:/data
+      - /opt/appdata/caddy/config:/config
+    networks:
+      - businessnet
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  businessnet:
+    external: true

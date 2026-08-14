@@ -1,0 +1,19 @@
+services:
+  authelia:
+    image: authelia/authelia:4.39.20
+    container_name: business-authelia
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      X_AUTHELIA_CONFIG_FILTERS: "template"
+    volumes:
+      - ./config:/config
+      - /opt/appdata/authelia:/data
+    networks:
+      - businessnet
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  businessnet:
+    external: true

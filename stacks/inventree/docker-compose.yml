@@ -1,21 +1,6 @@
 # InvenTree — inventory & parts management for hardware resale.
-# gunicorn (8000) behind InvenTree's own Caddy (8080). Edge Caddy → inventree.pushprh.com:8080.
+# gunicorn (8000) behind business Caddy (forward_auth → Authelia) → inventree.pushprh.com.
 services:
-  inventree-proxy:
-    image: caddy:alpine
-    container_name: inventree-proxy
-    restart: unless-stopped
-    ports:
-      - "10.37.20.70:8080:80"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - /opt/appdata/inventree/static:/var/www/static:ro
-      - /opt/appdata/inventree/media:/var/www/media:ro
-    depends_on:
-      - inventree
-    networks:
-      - businessnet
-
   inventree:
     image: inventree/inventree:1.4.3
     container_name: inventree
@@ -45,22 +30,6 @@ services:
       INVENTREE_TIMEZONE: "America/Los_Angeles"
       INVENTREE_BACKUP_ENABLED: "True"
       INVENTREE_BACKUP_DIR_NAME: "backups"
-      # --- SSO (Authelia OIDC via django-allauth) ---
-      INVENTREE_SOCIAL_BACKENDS: allauth.socialaccount.providers.openid_connect
-      INVENTREE_SOCIAL_PROVIDERS: |-
-        {
-          "openid_connect": {
-            "bitbucket": {
-              "server_url": "https://auth.pushprh.com/.well-known/openid-configuration"
-            }
-          }
-        }
-      INVENTREE_LOGIN_DEFAULT_HTTP_PROTOCOL: https
-      # Trust proxy headers from the internal Caddy
-      INVENTREE_USE_X_FORWARDED_PROTO: "true"
-      INVENTREE_USE_X_FORWARDED_HOST: "true"
-      INVENTREE_USE_X_FORWARDED_PORT: "true"
-      INVENTREE_INTERNAL_URLS: "10.37.20.10,10.37.20.70,127.0.0.1,localhost"
     volumes:
       - /opt/appdata/inventree/media:/data/media
       - /opt/appdata/inventree/static:/data/static

@@ -23,7 +23,7 @@ pkunited's `just deploy` assumes the following are already provisioned by psx-ho
 | Item | Where | Notes |
 |------|-------|-------|
 | Business VM | `10.37.20.70` | Debian 13 (trixie), 4 vCPU, 8 GB, 40 GB |
-| SSH access | `root@10.37.20.70` via `deploy_ed25519` | cloud-init deploy key |
+| SSH access | `root@10.37.20.70` via `pkunited_deploy_ed25519` | deploy key in `secrets/`, pubkey provisioned by psx-homelab `base` role |
 | Docker daemon | Installed on business VM | via psx-homelab `docker` role |
 | `businessnet` Docker network | `docker network create businessnet` | External network referenced by all stacks |
 | `/opt/stacks/` | Directory on business VM | Compose files deployed here |
@@ -64,5 +64,5 @@ pkunited's justfile reads:
 | Var | Default | Notes |
 |-----|---------|-------|
 | `BUSINESS_SSH` | `root@10.37.20.70` | SSH target for business VM |
-| `BUSINESS_KEY` | `../psx-homelab/host/keys/deploy_ed25519` | Path to deploy key (relative to pkunited) |
+| `BUSINESS_KEY` | `secrets/pkunited_deploy_ed25519` | Path to pkunited deploy key (gitignored) |
 | `SOPS_AGE_KEY_FILE` | `secrets/age.key` | Path to age key for secret decryption |

@@ -1,0 +1,48 @@
+:80 {
+
+	# --- InvenTree ---
+	@inventree {
+		host inventree.pushprh.com
+	}
+	forward_auth @inventree http://authelia:9091 {
+		uri /api/authz/forward-auth?service=business&rd=https://auth.pushprh.com
+		copy_headers Remote-User Remote-Email Remote-Groups Remote-Name
+		header_up X-Forwarded-Proto https
+	}
+	reverse_proxy @inventree inventree:8000 {
+		header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+	}
+
+	# --- Akaunting ---
+	@akaunting {
+		host accounts.pushprh.com
+	}
+	forward_auth @akaunting http://authelia:9091 {
+		uri /api/authz/forward-auth?service=business&rd=https://auth.pushprh.com
+		copy_headers Remote-User Remote-Email Remote-Groups Remote-Name
+		header_up X-Forwarded-Proto https
+	}
+	reverse_proxy @akaunting akaunting:80 {
+		header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+	}
+
+	# --- n8n ---
+	# n8n webhooks bypass auth; editor goes through forward_auth
+	@n8n-webhook {
+		host n8n.pushprh.com
+		path /webhook/*
+	}
+	@n8n {
+		host n8n.pushprh.com
+		not path /webhook/*
+	}
+	forward_auth @n8n http://authelia:9091 {
+		uri /api/authz/forward-auth?service=business&rd=https://auth.pushprh.com
+		copy_headers Remote-User Remote-Email Remote-Groups Remote-Name
+		header_up X-Forwarded-Proto https
+	}
+	reverse_proxy @n8n-webhook n8n:5678
+	reverse_proxy @n8n n8n:5678 {
+		header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+	}
+}
