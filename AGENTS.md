@@ -17,6 +17,7 @@ Self-hosted business services homelab stack: **InvenTree** (inventory), **Akaunt
   ```bash
   git worktree add ../pkunited-<feature-name> -b <feature-name>
   ```
+- **Write a planning doc for substantial work.** Store it in `.pi/plans/<plan-name>.md` (gitignored). List the tasks, file changes, and expected impact. Mark items done as you complete them. Delete the plan once the work is merged.
 - **Commit frequently in the worktree** — each logical unit of work gets its own commit.
 - **Squash on merge back to `main`.** When the worktree is done, merge with `--squash` so `main` gets one clean, logical commit:
   ```bash
@@ -66,6 +67,7 @@ stacks/          — Docker Compose stacks per service
   <service>/     — docker-compose.yml, Caddyfiles, scripts, config
 secrets/         — SOPS-encrypted .env files (age-encrypted)
 docs/            — Architecture plans, integration designs, auth plans
+.pi/plans/       — Working planning documents (gitignored, deleted on completion)
 .sops.yaml       — SOPS encryption config (age keys)
 CONTRACT.md      — Interface with psx-homelab
 AGENTS.md        — This file (project rules for the coding agent)
