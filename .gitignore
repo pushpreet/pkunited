@@ -1,2 +1,17 @@
 .env
 .pi/
+
+# Rendered secrets (gitignored, never committed)
+stacks/*/.env
+stacks/**/*.env
+
+# Age key (sensitive)
+secrets/age.key
+
+# Node modules (if any tooling added later)
+node_modules/
+
+# Python venvs
+.venv/
+*.pyc
+__pycache__/
