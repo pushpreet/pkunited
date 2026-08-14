@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "url": "http://10.37.20.50:9202/mcp",
+      "auth": "bearer",
+      "bearerTokenEnv": "PLAYWRIGHT_MCP_TOKEN"
+    }
+  }
+}
