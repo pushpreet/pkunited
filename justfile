@@ -11,7 +11,7 @@ deploy_key := env_var_or_default("BUSINESS_KEY", "secrets/pkunited_deploy_ed2551
 stacks_root := "/opt/stacks"
 
 # Deployment order: infra first, then apps
-stacks_list := "caddy authelia inventree akaunting n8n"
+stacks_list := "caddy authelia n8n"
 
 # List recipes
 default:
@@ -23,7 +23,7 @@ default:
 secrets:
     @scripts/render-env.sh
 
-# Edit an encrypted secret file in place (e.g. just sops-edit inventree)
+# Edit an encrypted secret file in place (e.g. just sops-edit n8n)
 sops-edit service:
     sops --input-type dotenv --output-type dotenv secrets/{{service}}.env.sops
 
@@ -40,7 +40,7 @@ sops-new service src:
 
 # Render secrets, then validate every compose stack (no deploy)
 validate: secrets
-    @for d in stacks/caddy stacks/authelia stacks/inventree stacks/akaunting stacks/n8n; do \
+    @for d in stacks/caddy stacks/authelia stacks/n8n; do \
       if [ -f "$d/docker-compose.yml" ]; then \
         echo "== validating $d =="; \
         (cd "$d" && docker compose config -q); \
@@ -75,7 +75,7 @@ deploy: secrets
     done
     @echo "==> deploying stacks on business VM"
     @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
-        'for stack in caddy authelia inventree akaunting n8n; do \
+        'for stack in caddy authelia n8n; do \
           d="{{stacks_root}}/$stack"; \
           [ -d "$d" ] || continue; \
           echo "  deploying $stack..."; \
@@ -106,12 +106,6 @@ stack-purge stack:
 # Application-consistent DB dumps
 backup-dumps:
     @ts="$$(date +%Y%m%d-%H%M%S)" && \
-    echo "==> dumping InvenTree (PostgreSQL)..." && \
-    ssh -t -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
-      "docker exec inventree-db pg_dump -U $$(grep INVENTREE_DB_USER .env | cut -d= -f2) $$(grep INVENTREE_DB_NAME .env | cut -d= -f2) > /opt/appdata/inventree/backups/inventree-$$ts.sql" && \
-    echo "==> dumping Akaunting (MariaDB)..." && \
-    ssh -t -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
-      "docker exec akaunting-db mysqldump -u $$(grep DB_USERNAME .env | cut -d= -f2) -p$$(grep DB_PASSWORD .env | cut -d= -f2) $$(grep DB_NAME .env | cut -d= -f2) > /opt/appdata/akaunting/backups/akaunting-$$ts.sql" && \
     echo "==> dumping n8n (PostgreSQL)..." && \
     ssh -t -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
       "docker exec n8n-db pg_dump -U $$(grep N8N_DB_USER .env | cut -d= -f2) $$(grep N8N_DB_NAME .env | cut -d= -f2) > /opt/appdata/n8n/backups/n8n-$$ts.sql" && \

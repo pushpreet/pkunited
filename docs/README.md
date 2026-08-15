@@ -13,8 +13,6 @@ pkunited deploys everything on that VM: Caddy (entry point + auth), Authelia (SS
 
 ```
 Internet → Cloudflare → Edge Caddy (core-infra) → Business Caddy (10.37.20.70:9443)
-  ├─ inventree.pushprh.com  ──→ forward_auth → Authelia → inventree:8000
-  ├─ accounts.pushprh.com   ──→ forward_auth → Authelia → akaunting:80
   └─ n8n.pushprh.com        ──→ forward_auth → Authelia → n8n:5678
 ```
 
@@ -22,8 +20,8 @@ Authelia reads LLDAP on core-infra (`10.37.20.10:3890`) for user/group lookup.
 
 n8n reaches LiteLLM on epyc-server (`http://10.37.20.50:4000/v1`) for LLM inference via a dedicated virtual key.
 
-> **MCP servers (phase 2):** InvenTree MCP, Akaunting MCP, and n8n MCP deferred to a follow-up pass.
-> Phase 1 delivers the three services with web UIs + REST APIs. LLM agents can interact via direct
+> **MCP servers (phase 2):** n8n MCP deferred to a follow-up pass.
+> Phase 1 delivers the service with a web UI + REST API. LLM agents can interact via direct
 > API calls or n8n webhook endpoints.
 
 ---
@@ -34,46 +32,21 @@ n8n reaches LiteLLM on epyc-server (`http://10.37.20.50:4000/v1`) for LLM infere
 |---------|-------|-------------|-------|-----|
 | Caddy | caddy:alpine | `10.37.20.70:9443` | all | — |
 | Authelia | authelia/authelia:4.39.20 | internal | — | SQLite |
-| InvenTree | inventree/inventree:1.4.3 | internal | inventree.pushprh.com | PostgreSQL 17 |
-| Akaunting | akaunting/akaunting:3.1.31 | internal | accounts.pushprh.com | MariaDB 11.3 |
 | n8n | docker.n8n.io/n8n/n8n:1.101.2 | internal | n8n.pushprh.com | PostgreSQL 17 |
 
-### InvenTree
 
-Granular stock tracking, bills of materials, supplier management, location hierarchy, and parts catalog for hardware resale. Python/Django + DRF (REST API), PostgreSQL, React frontend. Full REST API with OpenAPI/Swagger docs. MCP server available ([syntaxerr66/inventree-mcp](https://github.com/syntaxerr66/inventree-mcp)).
-
-**Key capabilities:**
-- Part-level stock tracking with serial numbers / batch tracking
-- Purchase orders to suppliers, sales orders to customers
-- Location hierarchy (warehouse shelves, bins, rooms)
-- BOMs for kits/bundles, CSV import/export
-- Mobile app (iOS + Android) for barcode scanning
-
-### Akaunting
-
-Business accounting with invoicing, expense tracking, double-entry bookkeeping, tax/VAT reporting, and financial statements. PHP/Laravel + Vue.js, MySQL/MariaDB. Full REST API.
-
-**Key capabilities:**
-- Invoice creation and tracking, bill/expense recording
-- Double-entry accounting, multi-currency support
-- Tax/VAT calculation, bank account tracking
-- Recurring invoices, multi-user with roles
 
 ### n8n
 
 Integration orchestration — polling marketplaces, syncing orders to inventory/accounting, parsing bank statements, and exposing workflows to LLM agents. Node.js, PostgreSQL.
 
 **Key workflows to build:**
-1. **Amazon order ingestion** → InvenTree sales order + Akaunting invoice
+1. **Amazon order ingestion** → process orders and track fulfillment
 2. **eBay order ingestion** → same flow
-3. **Stock deduction** on fulfilled orders
-4. **Bank CSV import** → Akaunting transactions
-5. **Reorder alerts** when stock drops below threshold
-6. **Revenue reconciliation** of marketplace payouts
+3. **Stock alerts** when stock drops below threshold
+4. **Revenue reconciliation** of marketplace payouts
 
-### Bank/Card Transaction Sync
 
-Manual CSV/OFX import piped through n8n into Akaunting. Avoiding Plaid/SimpleFIN costs. Upgrade to [OpenFinance](https://openfinance.sh/) later if volume justifies it.
 
 ---
 
@@ -124,12 +97,8 @@ See `CONTRACT.md` for the interface with psx-homelab.
 
 | Decision | Choice | Why |
 |----------|--------|-----|
-| Inventory | InvenTree over OpenOMS | Production-stable, excellent MCP server, perfect for hardware/parts tracking |
-| Bookkeeping | Akaunting over Actual Budget | Business-oriented (invoicing, double-entry, tax). Actual Budget is personal envelope budgeting |
 | Automation | n8n over custom scripts | Visual workflow builder, native marketplace nodes, AI agent nodes, mature ecosystem |
-| Bank sync | CSV via n8n over Plaid/OpenFinance | Avoid SaaS dependency and cost. Upgrade to OpenFinance later if needed |
 | All-in-one ERP | Rejected Odoo | Community edition paywalls key features. Enterprise is per-user paid |
-| Spreadsheet DB | Migrate off Grist | Grist is great for prototyping but lacks structured accounting/inventory features |
 
 ---
 
@@ -140,26 +109,15 @@ See `CONTRACT.md` for the interface with psx-homelab.
 3. **Monitoring:** Add business services to core-infra Prometheus/Grafana?
 4. **Amazon Seller Central:** Existing SP-API developer profile? Need `seller_id`, `refresh_token`, AWS creds.
 5. **eBay Developer:** OAuth `client_id` / `client_secret` from developer.ebay.com?
-6. **Bank CSV format:** Which banks? Format determines the n8n parser.
 
 ---
 
-## Data Migration
 
-Currently using self-hosted Grist for some accounting. Data should be exported from Grist (CSV/Excel) and migrated into Akaunting and InvenTree as part of initial setup:
-
-- [ ] Export data from Grist (CSV)
-- [ ] Import product/part catalog into InvenTree (`inventree.pushprh.com`)
-- [ ] Import existing stock quantities into InvenTree
-- [ ] Set up chart of accounts in Akaunting (`accounts.pushprh.com`)
-- [ ] Import existing transactions/balances into Akaunting
 
 ---
 
 ## Future Work
 
-- [ ] Build and deploy inventree-mcp server (Go binary, stdio mode)
-- [ ] Build Akaunting MCP wrapper (TypeScript/Node or Go)
 - [ ] Wire up MCP servers to LLM agents (Claude Desktop, etc.)
 - [ ] Configure Amazon SP-API credentials and build order polling workflow
 - [ ] Configure eBay API credentials and build order polling workflow

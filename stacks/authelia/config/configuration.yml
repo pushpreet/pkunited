@@ -27,10 +27,6 @@ authentication_backend:
 access_control:
   default_policy: 'deny'
   rules:
-    - domain: 'inventree.pushprh.com'
-      policy: 'one_factor'
-    - domain: 'accounts.pushprh.com'
-      policy: 'one_factor'
     - domain: 'n8n.pushprh.com'
       policy: 'one_factor'
 
