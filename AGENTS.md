@@ -17,6 +17,9 @@ Self-hosted business services homelab stack: **n8n** (automation/orchestration) 
   ```bash
   git worktree add ../pkunited-<feature-name> -b <feature-name>
   ```
+- **All work after creating a worktree must target the worktree path, not `main`.** Since `cd` does not persist across tool calls, always use the full path:
+  - File tools (`read`, `edit`, `write`): use the absolute path (e.g., `/home/pushprh/Projects/pkunited-<feature-name>/AGENTS.md`)
+  - `bash` commands: prefix with `cd ../pkunited-<feature-name> &&`
 - **Write a planning doc for substantial work.** Store it in `.pi/plans/<plan-name>.md` (gitignored). List the tasks, file changes, and expected impact. Mark items done as you complete them. Delete the plan once the work is merged.
 - **Commit frequently in the worktree** — each logical unit of work gets its own commit.
 - **Squash on merge back to `main`.** When the worktree is done, merge with `--squash` so `main` gets one clean, logical commit:
