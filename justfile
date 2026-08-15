@@ -11,7 +11,7 @@ deploy_key := env_var_or_default("BUSINESS_KEY", "secrets/pkunited_deploy_ed2551
 stacks_root := "/opt/stacks"
 
 # Deployment order: infra first, then apps
-stacks_list := "caddy authelia n8n"
+stacks_list := "caddy n8n"
 
 # List recipes
 default:
@@ -40,7 +40,7 @@ sops-new service src:
 
 # Render secrets, then validate every compose stack (no deploy)
 validate: secrets
-    @for d in stacks/caddy stacks/authelia stacks/n8n; do \
+    @for d in stacks/caddy stacks/n8n; do \
       if [ -f "$d/docker-compose.yml" ]; then \
         echo "== validating $d =="; \
         (cd "$d" && docker compose config -q); \
@@ -75,7 +75,7 @@ deploy: secrets
     done
     @echo "==> deploying stacks on business VM"
     @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
-        'for stack in caddy authelia n8n; do \
+        'for stack in caddy n8n; do \
           d="{{stacks_root}}/$stack"; \
           [ -d "$d" ] || continue; \
           echo "  deploying $stack..."; \

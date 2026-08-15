@@ -4,7 +4,7 @@
 #
 #   SOPS_AGE_KEY_FILE=secrets/age.key scripts/render-env.sh
 #
-# Optional: pass service names to render only those (e.g. `render-env.sh inventree n8n`).
+# Optional: pass service names to render only those (e.g. `render-env.sh n8n`).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

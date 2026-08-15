@@ -2,7 +2,7 @@
 
 ## What This Project Is
 
-Self-hosted business services homelab stack: **InvenTree** (inventory), **Akaunting** (bookkeeping), **n8n** (automation/orchestration), **Caddy** (reverse proxy), **Cloudflared** (tunneling), and **Authelia** (SSO). Serves a small business selling hardware/electronics on Amazon and eBay.
+Self-hosted business services homelab stack: **n8n** (automation/orchestration) and **Caddy** (reverse proxy). Serves a small business selling hardware/electronics on Amazon and eBay.
 
 ## Security
 
@@ -32,7 +32,7 @@ Self-hosted business services homelab stack: **InvenTree** (inventory), **Akaunt
 
 pkunited owns its own deployment pipeline. The business VM (`10.37.20.70`) is provisioned
 by `psx-homelab` (Ansible base + docker roles), then pkunited deploys all stacks into it:
-Caddy (entry point + auth), Authelia (SSO), and the three apps.
+Caddy (entry point) and n8n.
 
 Run `just` in pkunited to see available recipes. Key commands:
 - `just validate` — render secrets, validate all compose files

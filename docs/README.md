@@ -9,14 +9,15 @@ Self-host the full stack for a small business selling hardware/electronics on Am
 ## Architecture
 
 All services run on a single business VM (`10.37.20.70`) provisioned by psx-homelab.
-pkunited deploys everything on that VM: Caddy (entry point + auth), Authelia (SSO), and apps.
+pkunited deploys everything on that VM: Caddy (entry point) and n8n.
 
 ```
 Internet → Cloudflare → Edge Caddy (core-infra) → Business Caddy (10.37.20.70:9443)
-  └─ n8n.pushprh.com        ──→ forward_auth → Authelia → n8n:5678
+  └─ n8n.pushprh.com        ──→ n8n:5678
+                              (except /webhook/* — no auth)
 ```
 
-Authelia reads LLDAP on core-infra (`10.37.20.10:3890`) for user/group lookup.
+n8n handles its own authentication via User Management mode. Webhook paths bypass auth so external services can trigger workflows.
 
 n8n reaches LiteLLM on epyc-server (`http://10.37.20.50:4000/v1`) for LLM inference via a dedicated virtual key.
 
@@ -31,10 +32,7 @@ n8n reaches LiteLLM on epyc-server (`http://10.37.20.50:4000/v1`) for LLM infere
 | Service | Image | Network Port | Route | DB |
 |---------|-------|-------------|-------|-----|
 | Caddy | caddy:alpine | `10.37.20.70:9443` | all | — |
-| Authelia | authelia/authelia:4.39.20 | internal | — | SQLite |
 | n8n | docker.n8n.io/n8n/n8n:1.101.2 | internal | n8n.pushprh.com | PostgreSQL 17 |
-
-
 
 ### n8n
 
@@ -46,17 +44,11 @@ Integration orchestration — polling marketplaces, syncing orders to inventory/
 3. **Stock alerts** when stock drops below threshold
 4. **Revenue reconciliation** of marketplace payouts
 
-
-
 ---
 
 ## Authentication
 
-All services use Caddy `forward_auth` to a local Authelia instance.
-Authelia reads LLDAP on core-infra for user/group lookup. No OIDC clients.
-No per-app auth config. No middleware. No bolt-ons.
-
-See `docs/auth-runbook.md` for setup details and LLDAP user table.
+n8n uses its own User Management mode for authentication. Caddy reverse-proxies directly to n8n without any `forward_auth` middleware. Webhook paths (`/webhook/*`) skip auth entirely so external services can trigger workflows.
 
 ---
 
@@ -109,10 +101,6 @@ See `CONTRACT.md` for the interface with psx-homelab.
 3. **Monitoring:** Add business services to core-infra Prometheus/Grafana?
 4. **Amazon Seller Central:** Existing SP-API developer profile? Need `seller_id`, `refresh_token`, AWS creds.
 5. **eBay Developer:** OAuth `client_id` / `client_secret` from developer.ebay.com?
-
----
-
-
 
 ---
 

@@ -3,17 +3,15 @@
 ## Architecture
 
 All business services run on a single VM (`10.37.20.70`) provisioned by psx-homelab.
-pkunited deploys all runtime components: Caddy (entry point + auth), Authelia (SSO),
-and the three apps (InvenTree, Akaunting, n8n).
+pkunited deploys all runtime components: Caddy (entry point) and n8n.
 
 ```
 Internet → Cloudflare Tunnel → Edge Caddy (core-infra) → Business Caddy (10.37.20.70:9443)
-  ├─ inventree.pushprh.com  ──→ forward_auth → Authelia → inventree:8000
-  ├─ accounts.pushprh.com   ──→ forward_auth → Authelia → akaunting:80
-  └─ n8n.pushprh.com        ──→ forward_auth → Authelia → n8n:5678
+  └─ n8n.pushprh.com        ──→ n8n:5678
+                              (except /webhook/* — no auth)
 ```
 
-All auth is handled by Caddy `forward_auth` to the local Authelia instance.
+n8n handles its own authentication via User Management mode.
 No OIDC clients, no per-app auth config, no cross-repo config merge.
 
 ## Prerequisites (psx-homelab provides)
@@ -36,11 +34,8 @@ pkunited's `just deploy` assumes the following are already provisioned by psx-ho
 
 | Service | Network Port | Route | Auth |
 |---------|-------------|-------|------|
-| Business Caddy | `10.37.20.70:9443` | all | `forward_auth` → Authelia |
-| InvenTree | internal | inventree.pushprh.com | via Caddy forward_auth |
-| Akaunting | internal | accounts.pushprh.com | via Caddy forward_auth |
-| n8n | internal | n8n.pushprh.com | via Caddy forward_auth |
-| Authelia | internal | — | reads LLDAP on `10.37.20.10:3890` |
+| Business Caddy | `10.37.20.70:9443` | all | — |
+| n8n | internal | n8n.pushprh.com | n8n User Management |
 
 ## Secrets
 
@@ -49,13 +44,10 @@ Age public key: `age1muhxctlmyhf8lk2qm48z2hur5t4tjfjdz0xn4372nekwspghkgfsfwx9g6`
 
 | Secret | File | Used By |
 |--------|------|--------|
-| DB passwords/keys | `secrets/{inventree,akaunting,n8n}.env.sops` | App containers |
-| Authelia session secret | `secrets/authelia.env.sops` | Authelia container |
-| Authelia LDAP password | `secrets/authelia.env.sops` | Authelia → LLDAP bind |
+| n8n DB credentials | `secrets/n8n.env.sops` | n8n container |
 | n8n encryption key | `secrets/n8n.env.sops` | n8n container |
+| n8n JWT secret | `secrets/n8n.env.sops` | n8n container |
 | LiteLLM key | `secrets/n8n.env.sops` | n8n → LiteLLM |
-
-No OIDC clients. No secret digests. No cross-repo secret sync.
 
 ## Environment Variables
 

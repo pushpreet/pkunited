@@ -1,5 +1,5 @@
 # n8n — workflow automation (marketplace order ingestion, bank CSV import, LLM agents).
-# Behind business Caddy (forward_auth → Authelia, webhooks bypass) → n8n.pushprh.com.
+# Behind business Caddy → n8n.pushprh.com. Webhooks bypass auth.
 # Reaches LiteLLM on epyc-server for inference via LAN (http://10.37.20.50:4000/v1).
 services:
   n8n:
