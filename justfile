@@ -11,7 +11,7 @@ deploy_key := env_var_or_default("BUSINESS_KEY", "secrets/pkunited_deploy_ed2551
 stacks_root := "/opt/stacks"
 
 # Deployment order: infra first, then apps
-stacks_list := "caddy n8n"
+stacks_list := "caddy erpnext n8n"
 
 # List recipes
 default:
@@ -40,7 +40,7 @@ sops-new service src:
 
 # Render secrets, then validate every compose stack (no deploy)
 validate: secrets
-    @for d in stacks/caddy stacks/n8n; do \
+    @for d in stacks/caddy stacks/erpnext stacks/n8n; do \
       if [ -f "$d/docker-compose.yml" ]; then \
         echo "== validating $d =="; \
         (cd "$d" && docker compose config -q); \
@@ -75,7 +75,7 @@ deploy: secrets
     done
     @echo "==> deploying stacks on business VM"
     @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
-        'for stack in caddy n8n; do \
+        'for stack in {{stacks_list}}; do \
           d="{{stacks_root}}/$stack"; \
           [ -d "$d" ] || continue; \
           echo "  deploying $stack..."; \
@@ -109,6 +109,9 @@ backup-dumps:
     echo "==> dumping n8n (PostgreSQL)..." && \
     ssh -t -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
       "docker exec n8n-db pg_dump -U $$(grep N8N_DB_USER .env | cut -d= -f2) $$(grep N8N_DB_NAME .env | cut -d= -f2) > /opt/appdata/n8n/backups/n8n-$$ts.sql" && \
+    echo "==> dumping erpnext (MariaDB)..." && \
+    ssh -t -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+      "cd {{stacks_root}}/erpnext && docker exec erpnext-db mysqldump -u root -p$$(grep DB_PASSWORD .env | cut -d= -f2) --all-databases > /opt/appdata/erpnext/backups/erpnext-$$ts.sql" && \
     echo "==> dumps complete (restic will pick them up)"
 
 # SSH into the business VM

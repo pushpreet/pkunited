@@ -1,0 +1,182 @@
+# ERPNext — ERP/accounting/inventory via Frappe framework.
+# Behind business Caddy → erp.pushprh.com.
+# Adapted from https://github.com/frappe/frappe_docker (compose.yaml + mariadb + redis + noproxy overrides).
+
+x-customizable-image: &customizable_image
+  image: ${CUSTOM_IMAGE:-frappe/erpnext}:${CUSTOM_TAG:-${ERPNEXT_VERSION:-v16}}
+  pull_policy: ${PULL_POLICY:-always}
+  restart: ${RESTART_POLICY:-unless-stopped}
+
+x-depends-on-configurator: &depends_on_configurator
+  depends_on:
+    configurator:
+      condition: service_completed_successfully
+    db:
+      condition: service_healthy
+
+x-backend-defaults: &backend_defaults
+  <<: [*depends_on_configurator, *customizable_image]
+  volumes:
+    - /opt/appdata/erpnext/sites:/home/frappe/frappe-bench/sites
+  networks:
+    - businessnet
+
+services:
+  # ---------------------------------------------------------------------------
+  # Configurator — writes common_site_config.json on every start, then exits
+  # restart: "no" — one-shot; other services depend on service_completed_successfully
+  # ---------------------------------------------------------------------------
+  configurator:
+    <<: *backend_defaults
+    platform: linux/amd64
+    restart: "no"
+    entrypoint:
+      - bash
+      - -c
+    command:
+      - >
+        ls -1 apps > sites/apps.txt;
+        bench set-config -g db_host $$DB_HOST;
+        bench set-config -gp db_port $$DB_PORT;
+        bench set-config -g redis_cache "redis://$$REDIS_CACHE";
+        bench set-config -g redis_queue "redis://$$REDIS_QUEUE";
+        bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
+        bench set-config -gp socketio_port $$SOCKETIO_PORT;
+        bench set-config -g chromium_path /usr/bin/chromium-headless-shell;
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      REDIS_CACHE: redis-cache:6379
+      REDIS_QUEUE: redis-queue:6379
+      SOCKETIO_PORT: "9000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
+      redis-queue:
+        condition: service_started
+
+  # ---------------------------------------------------------------------------
+  # Backend — Gunicorn (Werkzeug) handling all HTTP requests
+  # ---------------------------------------------------------------------------
+  backend:
+    <<: *backend_defaults
+    container_name: erpnext-backend
+    platform: linux/amd64
+    environment:
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+
+  # ---------------------------------------------------------------------------
+  # Frontend — Nginx serving assets + reverse-proxy to backend/websocket
+  # Published on 8080 for business Caddy reverse-proxy
+  # ---------------------------------------------------------------------------
+  frontend:
+    <<: *customizable_image
+    platform: linux/amd64
+    command:
+      - nginx-entrypoint.sh
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
+      FRAPPE_SITE_NAME_HEADER: ${FRAPPE_SITE_NAME_HEADER:-$$host}
+      UPSTREAM_REAL_IP_ADDRESS: ${UPSTREAM_REAL_IP_ADDRESS:-127.0.0.1}
+      UPSTREAM_REAL_IP_HEADER: ${UPSTREAM_REAL_IP_HEADER:-X-Forwarded-For}
+      UPSTREAM_REAL_IP_RECURSIVE: ${UPSTREAM_REAL_IP_RECURSIVE:-off}
+      PROXY_READ_TIMEOUT: ${PROXY_READ_TIMEOUT:-120}
+      CLIENT_MAX_BODY_SIZE: ${CLIENT_MAX_BODY_SIZE:-50m}
+    volumes:
+      - /opt/appdata/erpnext/sites:/home/frappe/frappe-bench/sites
+    container_name: erpnext-frontend
+    ports:
+      - "10.37.20.70:8080:8080"
+    networks:
+      - businessnet
+    depends_on:
+      - backend
+      - websocket
+
+  # ---------------------------------------------------------------------------
+  # Websocket — Socket.IO for real-time updates
+  # ---------------------------------------------------------------------------
+  websocket:
+    <<: *backend_defaults
+    container_name: erpnext-websocket
+    platform: linux/amd64
+    command:
+      - node
+      - /home/frappe/frappe-bench/apps/frappe/socketio.js
+
+  # ---------------------------------------------------------------------------
+  # Workers — background job queues
+  # ---------------------------------------------------------------------------
+  queue-short:
+    <<: *backend_defaults
+    container_name: erpnext-queue-short
+    platform: linux/amd64
+    command: bench worker --queue short,default
+
+  queue-long:
+    <<: *backend_defaults
+    container_name: erpnext-queue-long
+    platform: linux/amd64
+    command: bench worker --queue long,default,short
+
+  # ---------------------------------------------------------------------------
+  # Scheduler — scheduled / cron tasks
+  # ---------------------------------------------------------------------------
+  scheduler:
+    <<: *backend_defaults
+    container_name: erpnext-scheduler
+    platform: linux/amd64
+    command: bench schedule
+
+  # ---------------------------------------------------------------------------
+  # MariaDB
+  # ---------------------------------------------------------------------------
+  db:
+    image: mariadb:11.8
+    container_name: erpnext-db
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+      MARIADB_AUTO_UPGRADE: "1"
+    volumes:
+      - /opt/appdata/erpnext/mariadb:/var/lib/mysql
+    networks:
+      - businessnet
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis-cache:
+    image: redis:8.6-alpine
+    container_name: erpnext-redis-cache
+    restart: unless-stopped
+    networks:
+      - businessnet
+
+  redis-queue:
+    image: redis:8.6-alpine
+    container_name: erpnext-redis-queue
+    restart: unless-stopped
+    volumes:
+      - /opt/appdata/erpnext/redis-queue:/data
+    networks:
+      - businessnet
+
+networks:
+  businessnet:
+    external: true
