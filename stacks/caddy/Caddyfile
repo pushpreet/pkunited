@@ -1,5 +1,14 @@
 :80 {
 
+	# --- ERPNext ---
+	@erpnext {
+		host erp.pushprh.com
+	}
+	reverse_proxy @erpnext erpnext-frontend:8080 {
+		header_up Host erp.pushprh.com
+		header_up X-Forwarded-Proto {http.request.header.X-Forwarded-Proto}
+	}
+
 	# --- n8n ---
 	# n8n handles its own authentication (User Management mode)
 	@n8n {
