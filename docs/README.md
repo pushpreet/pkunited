@@ -22,7 +22,7 @@ Internet → Cloudflare → Edge Caddy (core-infra) → Business Caddy (10.37.20
 
 n8n handles its own authentication via User Management mode. Webhook paths bypass auth so external services can trigger workflows.
 
-ERPNext handles its own authentication via the Administrator account.
+ERPNext authenticates via SSO through the homelab Authelia provider (`auth.pushprh.com`; `pku_users` group) with a password fallback (owner account `hanspal.pushpreet@gmail.com`) if Authelia is down. See CONTRACT.md.
 
 n8n reaches LiteLLM on epyc-server (`http://10.37.20.50:4000/v1`) for LLM inference via a dedicated virtual key.
 
@@ -72,7 +72,9 @@ docker compose exec backend bench new-site \
 
 n8n uses its own User Management mode for authentication. Caddy reverse-proxies directly to n8n without any `forward_auth` middleware. Webhook paths (`/webhook/*`) skip auth entirely so external services can trigger workflows.
 
-ERPNext uses its built-in user management (Administrator account + app-level users). Caddy reverse-proxies directly to the ERPNext frontend.
+ERPNext authenticates via SSO through the homelab Authelia provider (`auth.pushprh.com`; `pku_users` group) with a password fallback (owner account `hanspal.pushpreet@gmail.com`) if Authelia is down. See CONTRACT.md. Caddy reverse-proxies directly to the ERPNext frontend.
+
+Onboarding a new `pku_users` member: they SSO once (auto-created as a Website User), then the owner runs `just erpnext-promote-user <their-email>` (defaults: Accounts Manager, Stock Manager, Sales Manager) for desk access. Setup is idempotent — re-run `just erpnext-oidc-setup` to re-upsert the Social Login Key.
 
 ---
 

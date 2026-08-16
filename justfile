@@ -62,6 +62,24 @@ deploy-stack +stack:
         "cd {{stacks_root}}/{{stack}} && docker compose up -d --remove-orphans"
     @echo "==> {{stack}} deployed"
 
+# One-time (idempotent) ERPNext SSO setup: upserts the `authelia` Social Login Key on the
+# live site, then migrates the owner's user email to their LLDAP email. Needs the stack
+# synced first (just deploy-stack erpnext).
+erpnext-oidc-setup:
+    @just secrets
+    @test -f "stacks/erpnext/setup-oidc.sh" || { echo "stacks/erpnext/setup-oidc.sh missing — run: just deploy-stack erpnext" >&2; exit 1; }
+    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+        "bash {{stacks_root}}/erpnext/setup-oidc.sh upsert && bash {{stacks_root}}/erpnext/setup-oidc.sh migrate-user"
+
+# Promote an SSO-created user to a System User with business roles (inventory +
+# bookkeeping + sales). Comma-separated roles (role names contain spaces):
+# just erpnext-promote-user <email> ["Sales Manager,Purchase Manager"].
+# One ssh + one idempotent add_roles per role.
+erpnext-promote-user email roles="Accounts Manager,Stock Manager,Sales Manager":
+    @roles_all="{{roles}}"; IFS=','; for r in $roles_all; do r="${r# }"; \
+        ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+        "bash {{stacks_root}}/erpnext/setup-oidc.sh promote-user {{email}} \"$r\""; done
+
 # Deploy all stacks to the business VM
 deploy: secrets
     @echo "==> syncing stacks to business VM"
