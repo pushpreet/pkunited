@@ -80,6 +80,31 @@ erpnext-promote-user email roles="Accounts Manager,Stock Manager,Sales Manager":
         ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
         "bash {{stacks_root}}/erpnext/setup-oidc.sh promote-user {{email}} \"$r\""; done
 
+# Build the custom ERPNext image on the business VM: official v16.32.1 base
+# + the Sync via SimpleFIN app baked in (bench dir is image-baked, not a
+# volume, so the app goes in at build time). Image is local to the VM only.
+# After changing the Dockerfile/app pin: just erpnext-build-image && just deploy-stack erpnext
+erpnext-build-image:
+    @just secrets
+    @test -d stacks/erpnext || { echo "no stack dir: stacks/erpnext" >&2; exit 1; }
+    @echo "==> syncing erpnext stack (with Dockerfile) to business VM"
+    @rsync -az --mkpath \
+        -e "ssh -i {{deploy_key}} -o StrictHostKeyChecking=no" \
+        "stacks/erpnext/" "{{business}}:{{stacks_root}}/erpnext/"
+    @echo "==> building erpnext-pkunited:16-sync-simplefin on business VM"
+    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+        "docker build -f {{stacks_root}}/erpnext/Dockerfile -t erpnext-pkunited:16-sync-simplefin {{stacks_root}}/erpnext"
+
+# One-time (idempotent): install the sync_simplefin app on the live site
+# (doctypes + Bank Transaction custom fields + dedup index). The app itself
+# is baked into the custom image; this only registers it on the site.
+# Prereq: just erpnext-build-image && just deploy-stack erpnext
+erpnext-simplefin-setup:
+    @just secrets
+    @test -f "stacks/erpnext/setup-simplefin.sh" || { echo "stacks/erpnext/setup-simplefin.sh missing -- run: just deploy-stack erpnext" >&2; exit 1; }
+    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+        "bash {{stacks_root}}/erpnext/setup-simplefin.sh"
+
 # Deploy all stacks to the business VM
 deploy: secrets
     @echo "==> syncing stacks to business VM"

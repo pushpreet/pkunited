@@ -38,7 +38,7 @@ n8n reaches LiteLLM on epyc-server (`http://10.37.20.50:4000/v1`) for LLM infere
 |---------|-------|-------------|-------|-----|
 | Caddy | caddy:alpine | `10.37.20.70:9443` | all | — |
 | n8n | docker.n8n.io/n8n/n8n:1.101.2 | internal | n8n.pushprh.com | PostgreSQL 17 |
-| ERPNext | frappe/erpnext:v16 | internal (8080) | erp.pushprh.com | MariaDB 11.8 |
+| ERPNext | erpnext-pkunited:16-sync-simplefin (local; base `frappe/erpnext:v16.32.1`) | internal (8080) | erp.pushprh.com | MariaDB 11.8 |
 
 ### n8n
 
@@ -65,6 +65,14 @@ docker compose exec backend bench new-site \
   --admin-password <ADMIN_PASSWORD> \
   erp.pushprh.com
 ```
+
+**Bank & Card Sync (SimpleFIN Bridge):** bank/credit-card transaction sync for reconciliation runs via the [SimpleFIN Bridge](https://beta-bridge.simplefin.org) (beta; $15/yr, up to 25 institutions, daily updates, ≤24 req/day) with the community app [Sync via SimpleFIN](https://github.com/archadianai/Sync_SimpleFIN) (GPL-3.0, pinned at v1.0.4 in `stacks/erpnext/Dockerfile`). The bench dir is baked into the official image (only `sites/` is a volume), so the app is baked into the local image `erpnext-pkunited:16-sync-simplefin` at build time; `just erpnext-simplefin-setup` then registers it on the live site (idempotent — doctypes, Bank Transaction custom fields, dedup index).
+
+- **Sync**: Daily at 02:00 (app default, per Connection). Initial pull covers the Bridge's 90-day max window (the app chunks newest-first automatically); posted transactions only (pending excluded). Imported rows land in Bank Transaction with `simplefin_*` fields and the `idx_simplefin_dedup` dedup index, and show up Unreconciled in the Bank Reconciliation Tool.
+- **Bridge credentials**: the access URL is stored in Frappe's encrypted Password fields by app design — it is not in SOPS.
+- **Rebuild the image** (if it was pruned from the VM, or the app pin is bumped): update `APP_REF`/`APP_SHA` in `stacks/erpnext/Dockerfile` after re-verifying the release (the build fails if the tag no longer resolves to the pinned SHA), then `just erpnext-build-image && just deploy-stack erpnext`.
+- **Ops**: `SimpleFIN Sync Log` doctype for run history and failures; the Bridge's 24 req/day rate limit auto-pauses the app; deleting a Connection retains imported Bank Transactions; manually recover accidentally cancelled transactions per the app README.
+- **Scope**: the Bridge covers the WaFd Bank credit card. WaFd deposit accounts are not synced by the Bridge — manual statement import for those is a separate deferred track.
 
 ---
 
