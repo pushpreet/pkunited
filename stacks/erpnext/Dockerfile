@@ -1,7 +1,9 @@
 # Custom ERPNext image: official 16.32.1 base + the "Sync via SimpleFIN" app
 # (archadianai/Sync_SimpleFIN) baked into the bench. The bench dir is baked
 # into the official image (only sites/ is a mounted volume), so the app is
-# cloned and pip-installed at build time. The image entrypoint re-links
+# cloned and pip-installed at build time. A small local compatibility patch
+# (patch-sync-simplefin.py — the only file copied in) fixes the app's
+# Password-field reads for Frappe v16. The image entrypoint re-links
 # sites/assets -> /home/frappe/frappe-bench/assets on every start, so the
 # freshly built assets are copied to that non-volume path to survive.
 ARG BASE=frappe/erpnext:v16.32.1
@@ -15,6 +17,14 @@ WORKDIR /home/frappe/frappe-bench
 # the pinned SHA (tag moved upstream).
 RUN git clone --depth 1 --branch "${APP_REF}" https://github.com/archadianai/Sync_SimpleFIN.git apps/sync_simplefin \
  && test "$(git -C apps/sync_simplefin rev-parse HEAD)" = "${APP_SHA}"
+
+# Apply the local compatibility patch (Frappe v16 stores Password fields as
+# an asterisk mask + Fernet copy in __Auth; upstream v1.0.4's read paths
+# return the mask and break the Bridge client). Applied after the SHA pin
+# test, before the editable install. The script is kept in the image at
+# /tmp/patch-sync-simplefin.py as an audit trail of the local modification.
+COPY patch-sync-simplefin.py /tmp/patch-sync-simplefin.py
+RUN /home/frappe/frappe-bench/env/bin/python /tmp/patch-sync-simplefin.py
 
 # Install into the bench env (the app has no extra pip dependencies), register
 # it in sites/apps.txt so `bench build` compiles its assets, build all assets.
