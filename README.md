@@ -60,7 +60,7 @@ See [`CONTRACT.md`](CONTRACT.md) for the interface with psx-homelab.
 - **n8n User Management auth:** n8n handles its own authentication. Caddy reverse-proxies directly without `forward_auth`. Webhook paths bypass auth entirely.
 - **Business Caddy as entry point:** Edge Caddy is a dumb proxy to `:9443`. All routing and TLS decisions happen on the business VM. This means pkunited owns its full stack without cross-repo fragment merging.
 - **No host ports on apps:** App containers are internal-only on `businessnet`. Caddy routes to them by container name. No port conflicts, no accidental exposure.
-- **SOPS + age for secrets:** pkunited uses its own age key, separate from psx-homelab. Secrets are committed encrypted; `.env` files are gitignored and rendered locally before deploy. Back up the private key in Vaultwarden and keep it out of psx-homelab's restic backup set.
+- **SOPS + age for secrets:** pkunited uses its own age key, separate from psx-homelab. Secrets are committed encrypted; `.env` files are gitignored and rendered locally before deploy. Deploys run on psx-homelab's control Pi, which holds its own pkunited age identity (see `CONTRACT.md`). Keep offline copies of the private keys outside the homelab and out of psx-homelab's restic backup set.
 - **n8n webhooks bypass auth:** `/webhook/*` paths skip auth so external services (Amazon, eBay) can trigger workflows without authentication.
 
 ## Open Questions

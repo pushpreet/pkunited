@@ -6,6 +6,12 @@ export SOPS_AGE_KEY_FILE := env_var_or_default("SOPS_AGE_KEY_FILE", "secrets/age
 # SSH target: business VM only (no core-infra)
 business := env_var_or_default("BUSINESS_SSH", "root@10.37.20.70")
 deploy_key := env_var_or_default("BUSINESS_KEY", "secrets/pkunited_deploy_ed25519")
+# The business VM's host key must already be known (psx-homelab pins it in ansible/known_hosts).
+ssh_opts := "-i " + deploy_key + " -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+# Normalised modes/owner, so a deploy from any controller (whatever its umask or uid)
+# leaves byte-identical files on the VM; -c keeps unchanged files (and their inodes).
+# `.env` files are then tightened to 0600.
+rsync_opts := "-azc --mkpath --chmod=D755,Fu=rwX,go=rX --chown=1000:1000"
 
 # Where compose stacks are deployed on the business VM
 stacks_root := "/opt/stacks"
@@ -54,12 +60,12 @@ deploy-stack +stack:
     @just secrets
     @test -d "stacks/{{stack}}" || { echo "no stack dir: stacks/{{stack}}" >&2; exit 1; }
     @echo "==> syncing {{stack}} to business VM"
-    @rsync -az --mkpath \
-        -e "ssh -i {{deploy_key}} -o StrictHostKeyChecking=no" \
+    @rsync {{rsync_opts}} \
+        -e "ssh {{ssh_opts}}" \
         "stacks/{{stack}}/" "{{business}}:{{stacks_root}}/{{stack}}/"
     @echo "==> deploying {{stack}}"
-    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
-        "cd {{stacks_root}}/{{stack}} && docker compose up -d --remove-orphans"
+    @ssh {{ssh_opts}} {{business}} \
+        "chmod 600 {{stacks_root}}/{{stack}}/.env 2>/dev/null; cd {{stacks_root}}/{{stack}} && docker compose up -d --remove-orphans"
     @echo "==> {{stack}} deployed"
 
 # One-time (idempotent) ERPNext SSO setup: upserts the `authelia` Social Login Key on the
@@ -68,7 +74,7 @@ deploy-stack +stack:
 erpnext-oidc-setup:
     @just secrets
     @test -f "stacks/erpnext/setup-oidc.sh" || { echo "stacks/erpnext/setup-oidc.sh missing — run: just deploy-stack erpnext" >&2; exit 1; }
-    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+    @ssh {{ssh_opts}} {{business}} \
         "bash {{stacks_root}}/erpnext/setup-oidc.sh upsert && bash {{stacks_root}}/erpnext/setup-oidc.sh migrate-user"
 
 # Promote an SSO-created user to a System User with business roles (inventory +
@@ -77,7 +83,7 @@ erpnext-oidc-setup:
 # One ssh + one idempotent add_roles per role.
 erpnext-promote-user email roles="Accounts Manager,Stock Manager,Sales Manager":
     @roles_all="{{roles}}"; IFS=','; for r in $roles_all; do r="${r# }"; \
-        ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+        ssh {{ssh_opts}} {{business}} \
         "bash {{stacks_root}}/erpnext/setup-oidc.sh promote-user {{email}} \"$r\""; done
 
 # Build the custom ERPNext image on the business VM: official v16.32.1 base
@@ -88,11 +94,11 @@ erpnext-build-image:
     @just secrets
     @test -d stacks/erpnext || { echo "no stack dir: stacks/erpnext" >&2; exit 1; }
     @echo "==> syncing erpnext stack (with Dockerfile) to business VM"
-    @rsync -az --mkpath \
-        -e "ssh -i {{deploy_key}} -o StrictHostKeyChecking=no" \
+    @rsync {{rsync_opts}} \
+        -e "ssh {{ssh_opts}}" \
         "stacks/erpnext/" "{{business}}:{{stacks_root}}/erpnext/"
     @echo "==> building erpnext-pkunited:16-sync-simplefin on business VM"
-    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+    @ssh {{ssh_opts}} {{business}} \
         "docker build -f {{stacks_root}}/erpnext/Dockerfile -t erpnext-pkunited:16-sync-simplefin {{stacks_root}}/erpnext"
 
 # One-time (idempotent): install the sync_simplefin app on the live site
@@ -102,7 +108,7 @@ erpnext-build-image:
 erpnext-simplefin-setup:
     @just secrets
     @test -f "stacks/erpnext/setup-simplefin.sh" || { echo "stacks/erpnext/setup-simplefin.sh missing -- run: just deploy-stack erpnext" >&2; exit 1; }
-    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+    @ssh {{ssh_opts}} {{business}} \
         "bash {{stacks_root}}/erpnext/setup-simplefin.sh"
 
 # Deploy all stacks to the business VM
@@ -111,38 +117,39 @@ deploy: secrets
     @for stack in {{stacks_list}}; do \
       if [ -d "stacks/$stack" ]; then \
         echo "  syncing $stack..."; \
-        rsync -az --mkpath \
-          -e "ssh -i {{deploy_key}} -o StrictHostKeyChecking=no" \
+        rsync {{rsync_opts}} \
+          -e "ssh {{ssh_opts}}" \
           "stacks/$stack/" "{{business}}:{{stacks_root}}/$stack/"; \
       fi; \
     done
     @echo "==> deploying stacks on business VM"
-    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+    @ssh {{ssh_opts}} {{business}} \
         'for stack in {{stacks_list}}; do \
           d="{{stacks_root}}/$stack"; \
           [ -d "$d" ] || continue; \
           echo "  deploying $stack..."; \
+          chmod 600 "$d/.env" 2>/dev/null; \
           cd "$d" && docker compose up -d --remove-orphans; \
         done'
     @echo "==> all done"
 
 # Tail one stack's logs
 stack-logs stack tail="200":
-    ssh -i {{deploy_key}} -t -o StrictHostKeyChecking=no {{business}} \
+    ssh -t {{ssh_opts}} {{business}} \
         "cd {{stacks_root}}/{{stack}} && docker compose logs --tail {{tail}} -f"
 
 # Stop one stack's containers (volumes preserved)
 stack-down stack:
-    ssh -i {{deploy_key}} -t -o StrictHostKeyChecking=no {{business}} \
+    ssh -t {{ssh_opts}} {{business}} \
         "cd {{stacks_root}}/{{stack}} && docker compose down"
 
 # RETIRE a stack: stop it, drop volumes, remove stack dir
 # Does NOT touch /opt/appdata/<stack>
 stack-purge stack:
     @echo "==> purging stack '{{stack}}' on business VM"
-    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+    @ssh {{ssh_opts}} {{business}} \
         "test -d {{stacks_root}}/{{stack}} && cd {{stacks_root}}/{{stack}} && docker compose down -v --remove-orphans || echo 'no stack dir'"
-    @ssh -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+    @ssh {{ssh_opts}} {{business}} \
         "rm -rf {{stacks_root}}/{{stack}}"
     @echo "==> removed {{stacks_root}}/{{stack}} (appdata left intact)"
 
@@ -150,13 +157,13 @@ stack-purge stack:
 backup-dumps:
     @ts="$$(date +%Y%m%d-%H%M%S)" && \
     echo "==> dumping n8n (PostgreSQL)..." && \
-    ssh -t -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+    ssh -t {{ssh_opts}} {{business}} \
       "docker exec n8n-db pg_dump -U $$(grep N8N_DB_USER .env | cut -d= -f2) $$(grep N8N_DB_NAME .env | cut -d= -f2) > /opt/appdata/n8n/backups/n8n-$$ts.sql" && \
     echo "==> dumping erpnext (MariaDB)..." && \
-    ssh -t -i {{deploy_key}} -o StrictHostKeyChecking=no {{business}} \
+    ssh -t {{ssh_opts}} {{business}} \
       "cd {{stacks_root}}/erpnext && docker exec erpnext-db mysqldump -u root -p$$(grep DB_PASSWORD .env | cut -d= -f2) --all-databases > /opt/appdata/erpnext/backups/erpnext-$$ts.sql" && \
     echo "==> dumps complete (restic will pick them up)"
 
 # SSH into the business VM
 ssh:
-    ssh -i {{deploy_key}} -t -o StrictHostKeyChecking=no {{business}}
+    ssh -t {{ssh_opts}} {{business}}
