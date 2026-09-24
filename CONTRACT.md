@@ -42,7 +42,9 @@ pkunited's `just deploy` assumes the following are already provisioned by psx-ho
 ## Secrets
 
 All secrets encrypted with SOPS+age in `secrets/*.env.sops`.
-Age public key: `age1muhxctlmyhf8lk2qm48z2hur5t4tjfjdz0xn4372nekwspghkgfsfwx9g6`
+Age public key: `age1kreq3nnm96m4vuh2gkh2pchgc4j5ygv9vgxwt99y4d304873df9s2jxak5`
+
+The private age key is pkunited-owned deployment material. Back it up in Vaultwarden and keep it out of psx-homelab's restic backup set; pkunited secrets must not rely on the homelab age key.
 
 | Secret | File | Used By |
 |--------|------|--------|

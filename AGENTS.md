@@ -10,6 +10,7 @@ Self-hosted business services homelab stack: **n8n** (automation/orchestration) 
 - **Never ask the user for secrets or passwords in plaintext through chat.** If a secret is needed, instruct the user to add it to SOPS-encrypted files in `secrets/`.
 - Edit secrets only via SOPS: `sops --input-type dotenv --output-type dotenv secrets/<svc>.env.sops` (or `--input-type json --output-type json` for `.json.sops`).
 - `.env` files are gitignored and should never be committed. Secrets live as `*.sops` files in `secrets/`.
+- pkunited uses its own age key (`age1kreq3nnm96m4vuh2gkh2pchgc4j5ygv9vgxwt99y4d304873df9s2jxak5`), separate from psx-homelab. The private key must be backed up to Vaultwarden and deliberately kept out of the homelab restic backup set.
 
 ## Development Workflow
 
