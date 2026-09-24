@@ -1,4 +1,4 @@
-# Custom ERPNext image: official 16.32.1 base + the "Sync via SimpleFIN" app
+# Custom ERPNext image: official 16.32.1 base pinned by digest + the "Sync via SimpleFIN" app
 # (archadianai/Sync_SimpleFIN) baked into the bench. The bench dir is baked
 # into the official image (only sites/ is a mounted volume), so the app is
 # cloned and pip-installed at build time. A small local compatibility patch
@@ -6,7 +6,7 @@
 # Password-field reads for Frappe v16. The image entrypoint re-links
 # sites/assets -> /home/frappe/frappe-bench/assets on every start, so the
 # freshly built assets are copied to that non-volume path to survive.
-ARG BASE=frappe/erpnext:v16.32.1
+ARG BASE=frappe/erpnext:v16.32.1@sha256:c60e59639d94a21669a986b4a312191c9f58dbd0f6ae5b1f4f426c00eb7e4839
 FROM ${BASE}
 
 ARG APP_REF=v1.0.4

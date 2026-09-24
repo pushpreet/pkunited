@@ -3,7 +3,7 @@
 # Reaches LiteLLM on epyc-server for inference via LAN (http://10.37.20.50:4000/v1).
 services:
   n8n:
-    image: ghcr.io/n8n-io/n8n:latest
+    image: n8nio/n8n:2.33.7@sha256:3989d9b8ebb77b4ee8f604519eb73e44f4384bfaa689526e0104eed79a237d30
     container_name: n8n
     restart: unless-stopped
     env_file: .env
@@ -45,7 +45,7 @@ services:
       - no-new-privileges:true
 
   n8n-db:
-    image: postgres:17
+    image: postgres:17@sha256:7958605b474b3d264a969cb3a123d6aa00ad1e1fe9da8a69984dabb704d93317
     container_name: n8n-db
     restart: unless-stopped
     environment:

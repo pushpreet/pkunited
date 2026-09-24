@@ -36,9 +36,9 @@ n8n reaches LiteLLM on epyc-server (`http://10.37.20.50:4000/v1`) for LLM infere
 
 | Service | Image | Network Port | Route | DB |
 |---------|-------|-------------|-------|-----|
-| Caddy | caddy:alpine | `10.37.20.70:9443` | all | — |
-| n8n | docker.n8n.io/n8n/n8n:1.101.2 | internal | n8n.pushprh.com | PostgreSQL 17 |
-| ERPNext | erpnext-pkunited:16-sync-simplefin (local; base `frappe/erpnext:v16.32.1`) | internal (8080) | erp.pushprh.com | MariaDB 11.8 |
+| Caddy | `caddy:alpine@sha256:5f5c...` | `10.37.20.70:9443` | all | — |
+| n8n | `n8nio/n8n:2.33.7@sha256:3989...` | internal | n8n.pushprh.com | PostgreSQL 17 |
+| ERPNext | `erpnext-pkunited:16-sync-simplefin` (local; base `frappe/erpnext:v16.32.1@sha256:c60e...`) | internal (8080) | erp.pushprh.com | MariaDB 11.8 |
 
 ### n8n
 

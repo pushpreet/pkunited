@@ -18,8 +18,9 @@ n8n handles its own authentication via User Management mode. Webhook paths (`/we
 
 | Service | Image | Network Port | Route | DB |
 |---------|-------|-------------|-------|-----|
-| Caddy | `caddy:alpine` | `10.37.20.70:9443` | all | — |
-| n8n | `ghcr.io/n8n-io/n8n:latest` | internal | n8n.pushprh.com | PostgreSQL 17 |
+| Caddy | `caddy:alpine@sha256:5f5c...` | `10.37.20.70:9443` | all | — |
+| n8n | `n8nio/n8n:2.33.7@sha256:3989...` | internal | n8n.pushprh.com | PostgreSQL 17 |
+| ERPNext | `erpnext-pkunited:16-sync-simplefin` (local build; base `frappe/erpnext:v16.32.1@sha256:c60e...`) | internal (8080) | erp.pushprh.com | MariaDB 11.8 |
 
 ### n8n
 
