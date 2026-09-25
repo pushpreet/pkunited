@@ -1,18 +1,18 @@
 # SOPS rule: encrypt secrets/*.env.sops with age. Recipients, in order:
 #   rpi-node           /home/ops/credentials/pkunited-age.key on the psx-homelab control Pi
 #   laptop-breakglass  ~/.ssh/homelab-breakglass/pkunited-age.key on the laptop (+ offline copy)
-#   legacy             age1kreq… (the dev VM's secrets/age.key); removed at the psx-homelab
-#                      revocation gate, followed by `sops rotate` of every file
+# The legacy shared key (age1kreq…) was removed at the psx-homelab revocation gate
+# (2026-09-25) and every file re-keyed with `sops rotate`.
 # Because the files use a dotenv body, always decrypt/edit with:
 #   sops --input-type dotenv --output-type dotenv ...
 creation_rules:
   - path_regex: secrets/.*\.env\.sops$
     input_type: dotenv
-    age: "age1hxykteqgs6peh6ed0eupjaczf40jgtqqmjjy94judv55nk49vg6scv0jkq,age1u0s2l03elzefw0czwuden8ptmwjn9ug7uhu6cxj9c5lkpvdtc5zsafjwmu,age1kreq3nnm96m4vuh2gkh2pchgc4j5ygv9vgxwt99y4d304873df9s2jxak5"
+    age: "age1hxykteqgs6peh6ed0eupjaczf40jgtqqmjjy94judv55nk49vg6scv0jkq,age1u0s2l03elzefw0czwuden8ptmwjn9ug7uhu6cxj9c5lkpvdtc5zsafjwmu"
   # JSON secrets (e.g. the Cloudflare Tunnel credentials.json). Named
   # <stack>-<file>.json.sops and rendered to stacks/<stack>/<file>.json by
   # scripts/render-env.sh. JSON body, so decrypt/edit with:
   #   sops --input-type json --output-type json ...
   - path_regex: secrets/.*\.json\.sops$
     input_type: json
-    age: "age1hxykteqgs6peh6ed0eupjaczf40jgtqqmjjy94judv55nk49vg6scv0jkq,age1u0s2l03elzefw0czwuden8ptmwjn9ug7uhu6cxj9c5lkpvdtc5zsafjwmu,age1kreq3nnm96m4vuh2gkh2pchgc4j5ygv9vgxwt99y4d304873df9s2jxak5"
+    age: "age1hxykteqgs6peh6ed0eupjaczf40jgtqqmjjy94judv55nk49vg6scv0jkq,age1u0s2l03elzefw0czwuden8ptmwjn9ug7uhu6cxj9c5lkpvdtc5zsafjwmu"
